@@ -1,12 +1,12 @@
 name: options1
 
 args:
-  C: 2
+  exploration_constant: 2 # Увеличение делает характер алгоаритма более исследовательским, уменьшение - более жадным
   num_searches: 60
   num_iterations: 2
   num_selfPlay_iterations: 200
   num_epochs: 4
   batch_size: 64
-  temperature: 1.25
-  dirichlet_epsilon: 0.25
-  dirichlet_alpha: 0.3
+  temperature: 1.25 # Увеличение делает характер алгоаритма более исследовательским, уменьшение - более жадным
+  dirichlet_epsilon: 0.25 #При уменьшении шум меньше влияет на стратегию
+  dirichlet_alpha: 0.3 #При увеличении шум становится более разнообразным
