@@ -4,12 +4,13 @@ import math
 
 
 class Node:
-    def __init__(self, game, args, state, parent=None, action_taken=None, prior=0, visit_count=0):
+    def __init__(self, game, args, state, parent=None, action_taken=None, player=1, prior=0, visit_count=0):
         self.game = game
         self.args = args
         self.state = state
         self.parent = parent
         self.action_taken = action_taken
+        self.player = player
         self.prior = prior
 
         self.children = []
@@ -40,13 +41,18 @@ class Node:
         return q_value + self.args['exploration_constant'] * (math.sqrt(self.visit_count) / (child.visit_count + 1)) * child.prior
 
     def expand(self, policy):
-        for action, prob in enumerate(policy):
+        for (start_idx, end_idx), prob in np.ndenumerate(policy):
             if prob > 0:
-                child_state = self.state.copy()
-                child_state = self.game.get_next_state(child_state, action, 1)
-                child_state = self.game.change_perspective(child_state, player=-1)
+                start_coord = [start_idx // 8, start_idx % 8]
+                end_coord = [end_idx // 8, end_idx % 8]
+                action = [start_coord, end_coord]
 
-                child = Node(self.game, self.args, child_state, self, action, prob)
+                child_state = self.state.copy()
+                child_state = self.game.get_next_state(child_state, action, self.player)
+                child_state = self.game.change_perspective(child_state, player=-1)
+                child_player = self.game.get_opponent(self.player)
+
+                child = Node(self.game, self.args, child_state, self, action, child_player, prob)
                 self.children.append(child)
 
     def backpropagate(self, value):
@@ -65,20 +71,29 @@ class MCTS:
         self.model = model
 
     @torch.no_grad()
-    def search(self, state):
-        root = Node(self.game, self.args, state, visit_count=1)
-
-        policy, _ = self.model(
-            torch.tensor(self.game.get_encoded_state(state)).unsqueeze(0)
-        )
-        policy = torch.softmax(policy, dim=1).squeeze(0).numpy()
-        policy = (1 - self.args['dirichlet_epsilon']) * policy + self.args['dirichlet_epsilon'] \
-                 * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
+    def get_policy_matrix(self, start_policy, end_policy, state):
+        start_policy = torch.softmax(start_policy, dim=1).squeeze(0).numpy()
+        end_policy = torch.softmax(end_policy, dim=1).squeeze(0).numpy()
 
         valid_moves = self.game.get_valid_moves(state)
-        policy *= valid_moves
-        policy /= np.sum(policy)
-        root.expand(policy)
+
+        policy = np.zeros((len(start_policy), len(end_policy)))
+        for start_idx, start_prob in enumerate(start_policy):
+            for end_idx, end_prob in enumerate(end_policy):
+                action = np.array([[start_idx // 8, start_idx % 8], [end_idx // 8, end_idx % 8]], dtype=np.uint8)
+                if any(np.array_equal(action, move) for move in valid_moves):
+                    if state[start_idx // 8, start_idx % 8] < 0:
+                        print(action, any(np.array_equal(action, move) for move in valid_moves),
+                              "Problem in policy_matrix")
+                    policy[start_idx, end_idx] = start_prob * end_prob
+                else:
+                    policy[start_idx, end_idx] = 0
+
+        return policy
+
+    @torch.no_grad()
+    def search(self, state):
+        root = Node(self.game, self.args, state)
 
         for search in range(self.args['num_searches']):
             node = root
@@ -90,12 +105,11 @@ class MCTS:
             value = self.game.get_opponent_value(value)
 
             if not is_terminal:
-                policy, value = self.model(
+                start_policy, end_policy, value = self.model(
                     torch.tensor(self.game.get_encoded_state(node.state)).unsqueeze(0)
                 )
-                policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
-                valid_moves = self.game.get_valid_moves(node.state)
-                policy *= valid_moves
+                policy = self.get_policy_matrix(start_policy, end_policy, node.state)
+
                 policy /= np.sum(policy)
 
                 value = value.item()
@@ -104,8 +118,10 @@ class MCTS:
 
             node.backpropagate(value)
 
-        action_probs = np.zeros(self.game.action_size)
+        action_probs = np.zeros((self.game.action_size, self.game.action_size + self.game.promotion_size))
         for child in root.children:
-            action_probs[child.action_taken] = child.visit_count
-        action_probs /= np.sum(action_probs)
+            start_coord, end_coord = child.action_taken[0], child.action_taken[1]
+            start_index = start_coord[0] * 8 + start_coord[1]
+            end_index = end_coord[0] * 8 + end_coord[1]
+            action_probs[start_index, end_index] = child.visit_count
         return action_probs

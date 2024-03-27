@@ -24,13 +24,21 @@ class AlphaZero:
             neutral_state = self.game.change_perspective(state, player)
             action_probs = self.mcts.search(neutral_state)
 
-            memory.append((neutral_state, action_probs, player))
+            flat_action_probs = action_probs.flatten()
+            flat_action_probs /= np.sum(flat_action_probs)
 
-            temperature_action_probs = action_probs ** (1 / self.args['temperature'])
+            memory.append((neutral_state, flat_action_probs, player))
+
+            temperature_action_probs = flat_action_probs ** (1 / self.args['temperature'])
             temperature_action_probs /= np.sum(temperature_action_probs)
-            action = np.random.choice(self.game.action_size, p=temperature_action_probs)
 
-            state = self.game.get_next_state(state, action, player)
+            start_end = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
+            start, end = np.unravel_index(start_end, action_probs.shape)
+            action = np.array([[start // 8, start % 8], [end // 8, end % 8]], dtype=np.uint8)
+
+            state = self.game.get_next_state(neutral_state, action, player)
+            if player == -1:
+                state = self.game.change_perspective(state, player)
 
             value, is_terminal = self.game.get_value_and_terminated(state, action)
 
@@ -60,7 +68,13 @@ class AlphaZero:
             policy_targets = torch.tensor(policy_targets, dtype=torch.float32)
             value_targets = torch.tensor(value_targets, dtype=torch.float32)
 
-            out_policy, out_value = self.model(state)
+            out_start_policy, out_end_policy, out_value = self.model(state)
+            out_policy = torch.empty_like(policy_targets)
+            for batch in range(out_start_policy.shape[0]):
+                for i in range(out_start_policy.shape[1]):
+                    for j in range(out_end_policy.shape[1]):
+                        out_policy[batch, i * out_end_policy.shape[1] + j] = out_start_policy[batch, i] * \
+                                                                            out_end_policy[batch, j]
 
             policy_loss = F.cross_entropy(out_policy, policy_targets)
             value_loss = F.mse_loss(out_value, value_targets)
@@ -82,5 +96,5 @@ class AlphaZero:
             for epoch in trange(self.args['num_epochs']):
                 self.train(memory)
 
-            torch.save(self.model.state_dict(), f"models/model_3_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"models/optimizer_3_{iteration}.pt")
+            torch.save(self.model.state_dict(), f"models/model_chess_{iteration}.pt")
+            torch.save(self.optimizer.state_dict(), f"models/optimizer_chess_{iteration}.pt")

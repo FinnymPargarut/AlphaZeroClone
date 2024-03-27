@@ -20,7 +20,7 @@ class TicTacToe:
         return (state.reshape(-1) == 0).astype(np.uint8)
 
     def check_win(self, state, action):
-        if action == None:
+        if action is None:
             return False
 
         row = action // self.column_count
@@ -54,5 +54,4 @@ class TicTacToe:
         encoded_state = np.stack(
             (state == -1, state == 0, state == 1)
         ).astype(np.float32)
-
         return encoded_state

@@ -1,3 +1,3 @@
 Model_2 is the best model.
-Model_0 and model_1 are under-trained.
-Model_3 is over-trained (always plays in a draw), and model_4 is over-trained (sometimes loses model_2)
+Model_0 and model_1 are underfitting.
+Model_3 is overfitting (always plays in a draw even with model_0), and model_4 is overfitting (sometimes loses model_2)

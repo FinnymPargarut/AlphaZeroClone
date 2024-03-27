@@ -6,9 +6,10 @@ import torch.nn.functional as F
 class ResNet(nn.Module):
     def __init__(self, game, num_resBlocks, num_hidden):
         super().__init__()
+        self.game = game
 
         self.startBlock = nn.Sequential(
-            nn.Conv2d(3, num_hidden, kernel_size=(3, 3), padding=1),
+            nn.Conv2d(13, num_hidden, kernel_size=(3, 3), padding=1),
             nn.BatchNorm2d(num_hidden),
             nn.ReLU()
         )
@@ -18,19 +19,19 @@ class ResNet(nn.Module):
         )
 
         self.policyHead = nn.Sequential(
-            nn.Conv2d(num_hidden, 32, kernel_size=(3, 3), padding=1),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(num_hidden, 64, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(32 * game.row_count * game.column_count, game.action_size)
+            nn.Linear(64 * game.row_count * game.column_count, game.action_size * 2 + game.promotion_size)
         )
 
         self.valueHead = nn.Sequential(
-            nn.Conv2d(num_hidden, 3, kernel_size=(3, 3), padding=1),
-            nn.BatchNorm2d(3),
+            nn.Conv2d(num_hidden, 6, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(6),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3 * game.row_count * game.column_count, 1),
+            nn.Linear(6 * game.row_count * game.column_count, 1),
             nn.Tanh()
         )
 
@@ -39,8 +40,9 @@ class ResNet(nn.Module):
         for resBlock in self.backBone:
             x = resBlock(x)
         policy = self.policyHead(x)
+        start_policy, end_policy = policy[:, :self.game.action_size], policy[:, self.game.action_size:]
         value = self.valueHead(x)
-        return policy, value
+        return start_policy, end_policy, value
 
 
 class ResBlock(nn.Module):
