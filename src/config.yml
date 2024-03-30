@@ -1,10 +1,21 @@
 name: options1
 
-args:
+args_for_training:
   exploration_constant: 2 # Увеличение делает характер алгоаритма более исследовательским, уменьшение - более жадным
   num_searches: 60
   num_iterations: 1
-  num_selfPlay_iterations: 100
+  num_selfPlay_iterations: 128
   num_epochs: 4
-  batch_size: 64
+  batch_size: 32
   temperature: 1.25 # Увеличение делает характер алгоаритма более исследовательским, уменьшение - более жадным
+
+
+args_for_play_with_model:
+  exploration_constant: 2
+  num_searches: 20
+
+
+args_for_models_play:
+  exploration_constant: 2
+  num_searches: 10
+  temperature: 0

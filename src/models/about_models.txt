@@ -1,3 +1,1 @@
-Model_2 is the best model.
-Model_0 and model_1 are underfitting.
-Model_3 is overfitting (always plays in a draw even with model_0), and model_4 is overfitting (sometimes loses model_2)
+Test_model_chess really bad. It is only needed for debugging helpers.py
