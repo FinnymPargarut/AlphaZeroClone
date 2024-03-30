@@ -29,7 +29,7 @@ class Chess:
         ]
         return np.array(initial_state)
 
-    def get_next_state(self, state, action, player):
+    def get_next_state(self, state, action, player, is_training=False):
         row_before, column_before = action[0][0], action[0][1]
         row_after, column_after = action[1][0], action[1][1]
         piece = state[row_before, column_before]
@@ -45,7 +45,7 @@ class Chess:
 
         if piece == 1 and row_after > 7:
             piece_if_promotion = {8: 2, 9: 3, 10: 5, 11: 9}[row_after]
-            state[row_after, column_after] = piece_if_promotion
+            state[0, column_after] = piece_if_promotion
             state[row_before, column_before] = 0
         elif piece == 1:
             self.__move_last_pawn = [[row_before, column_before], [row_after, column_after]]
@@ -68,17 +68,26 @@ class Chess:
             state[row_before, column_before] = 0
             self.__move_last_pawn = []
 
-        # Check state for draws
-        key = str(state)
-        self.__states_counter[key] = self.__states_counter.get(key, 0) + 1
-        if self.__states_counter[key] >= 3:
-            self.__is_draw_due_to_repetitions = True
-        # Check move for draw
-        self.__move_count_for_draw = 0 if piece == 1 or piece_after < 0 else self.__move_count_for_draw + 1
-        if self.__move_count_for_draw >= 50:
-            self.__is_draw_due_to_50_move_rule = True
+        if not is_training:
+            self.__is_draw_due_to_repetitions = self.check_state_for_draw(state, self.__states_counter,
+                                                                          self.__is_draw_due_to_repetitions)
+            self.__move_count_for_draw, self.__is_draw_due_to_50_move_rule = self.check_moves_for_draw(
+                piece, piece_after, self.__move_count_for_draw, self.__is_draw_due_to_50_move_rule)
 
         return state
+
+    def check_state_for_draw(self, state, states_counter, is_draw_due_to_repetitions):
+        key = str(state)
+        states_counter[key] = states_counter.get(key, 0) + 1
+        if states_counter[key] >= 3:
+            is_draw_due_to_repetitions = True
+        return is_draw_due_to_repetitions
+
+    def check_moves_for_draw(self, piece, piece_after, move_count, is_draw_due_to_50_move_rule):
+        move_count = 0 if piece == 1 or piece_after < 0 else move_count + 1
+        if move_count >= 50:
+            is_draw_due_to_50_move_rule = True
+        return move_count, is_draw_due_to_50_move_rule
 
     def __execute_the_king_move(self, state, row_before, column_before, row_after, column_after):
         if [row_before, column_before] == [7, 4] and [row_after, column_after] == [7, 6]:
@@ -216,7 +225,7 @@ class Chess:
 
         if piece == 1 and row_after > 7:
             piece_if_promotion = {8: 2, 9: 3, 10: 5, 11: 9}[row_after]
-            possible_next_state[row_after, column_after] = piece_if_promotion
+            possible_next_state[0, column_after] = piece_if_promotion
             possible_next_state[row_before, column_before] = 0
         elif piece == 10:
             self.__execute_the_king_move(possible_next_state, row_before, column_before, row_after, column_after)
@@ -369,12 +378,15 @@ class Chess:
         if the_king_was_checked:
             return False
         if valid_moves_size == 0:
+            print("Stalemate")
             return True
         # Repeats
         if self.__is_draw_due_to_repetitions:
+            print("Repeats draw")
             return True
         # The 50-move rule
         if self.__is_draw_due_to_50_move_rule:
+            print("50-move draw")
             return True
         # Not enough pieces
         value_white, value_black = 0, 0
@@ -392,21 +404,22 @@ class Chess:
                     else:
                         value_black += -piece
         if value_white < 15 and value_black < 15:
+            print("Not enough pieces draw")
             return True
         return False
 
-    def get_value_and_terminated(self, state, action):
+    def get_value_and_terminated(self, state, action, is_draw=False):
         if action is None:
             return 0, False
         row_after, column_after = action[1][0], action[1][1]
-        player = 1 if state[row_after, column_after] > 0 else -1
+        player = 1 if state[row_after if row_after <= 7 else 0, column_after] > 0 else -1
         opponent_perspective = self.change_perspective(state, self.get_opponent(player))
         valid_moves_size = self.get_valid_moves(opponent_perspective).size
         the_king_was_checked = self.__the_king_was_checked(opponent_perspective)
 
         if the_king_was_checked and valid_moves_size == 0:
             return 1, True
-        if self.__check_draw(state, valid_moves_size, the_king_was_checked):
+        if is_draw or self.__check_draw(state, valid_moves_size, the_king_was_checked):
             return 0, True
         return 0, False
 

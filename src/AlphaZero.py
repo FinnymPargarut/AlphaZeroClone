@@ -19,8 +19,12 @@ class AlphaZero:
         memory = []
         player = 1
         state = self.game.get_initial_state()
+        states_counter = {len(state): 1}
+        move_count_for_draw = 0
+        is_draw = False
 
         while True:
+            print("start")
             neutral_state = self.game.change_perspective(state, player)
             action_probs = self.mcts.search(neutral_state)
 
@@ -36,11 +40,16 @@ class AlphaZero:
             start, end = np.unravel_index(start_end, action_probs.shape)
             action = np.array([[start // 8, start % 8], [end // 8, end % 8]], dtype=np.uint8)
 
-            state = self.game.get_next_state(neutral_state, action, player)
+            piece = neutral_state[start // 8, start % 8]
+            piece_after = neutral_state[end // 8, end % 8] if end // 8 <= 7 else 100
+            state = self.game.get_next_state(neutral_state, action, player, is_training=True)
+            is_draw = self.game.check_state_for_draw(neutral_state, states_counter, is_draw)
+            move_count_for_draw, is_draw = self.game.check_moves_for_draw(piece, piece_after, move_count_for_draw, is_draw)
+
             if player == -1:
                 state = self.game.change_perspective(state, player)
 
-            value, is_terminal = self.game.get_value_and_terminated(state, action)
+            value, is_terminal = self.game.get_value_and_terminated(state, action, is_draw)
 
             if is_terminal:
                 returnMemory = []
@@ -96,5 +105,5 @@ class AlphaZero:
             for epoch in trange(self.args['num_epochs']):
                 self.train(memory)
 
-            torch.save(self.model.state_dict(), f"models/model_chess_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"models/optimizer_chess_{iteration}.pt")
+            torch.save(self.model.state_dict(), f"models/test_model_chess_{iteration+1}.pt")
+            torch.save(self.optimizer.state_dict(), f"models/test_optimizer_chess_{iteration+1}.pt")
