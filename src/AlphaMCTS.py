@@ -4,7 +4,7 @@ import math
 
 
 class Node:
-    def __init__(self, game, args, state, move_count, is_draw=False, parent=None, action_taken=None, player=1, prior=0):
+    def __init__(self, game, args, state, move_count=0, is_draw=False, parent=None, action_taken=None, player=1, prior=0):
         self.game = game
         self.args = args
         self.state = state
@@ -94,8 +94,8 @@ class MCTS:
 
     @torch.no_grad()
     def get_policy_matrix(self, start_policy, end_policy, state):
-        start_policy = torch.softmax(start_policy, dim=1).squeeze(0).numpy()
-        end_policy = torch.softmax(end_policy, dim=1).squeeze(0).numpy()
+        start_policy = torch.softmax(start_policy, dim=1).squeeze(0).cpu().numpy()
+        end_policy = torch.softmax(end_policy, dim=1).squeeze(0).cpu().numpy()
 
         valid_moves = self.game.get_valid_moves(state)
 
@@ -110,7 +110,7 @@ class MCTS:
 
     @torch.no_grad()
     def search(self, state):
-        root = Node(self.game, self.args, state, move_count=0)
+        root = Node(self.game, self.args, state)
 
         for search in range(self.args['num_searches']):
             node = root
@@ -123,7 +123,7 @@ class MCTS:
 
             if not is_terminal:
                 start_policy, end_policy, value = self.model(
-                    torch.tensor(self.game.get_encoded_state(node.state)).unsqueeze(0)
+                    torch.tensor(self.game.get_encoded_state(node.state), device=self.model.device).unsqueeze(0)
                 )
                 policy = self.get_policy_matrix(start_policy, end_policy, node.state)
 

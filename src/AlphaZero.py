@@ -40,10 +40,11 @@ class AlphaZero:
             start, end = np.unravel_index(start_end, action_probs.shape)
             action = np.array([[start // 8, start % 8], [end // 8, end % 8]], dtype=np.uint8)
 
+            # Get next state with check draw
             piece = neutral_state[start // 8, start % 8]
             piece_after = neutral_state[end // 8, end % 8] if end // 8 <= 7 else 100
             state = self.game.get_next_state(neutral_state, action, player, is_training=True)
-            is_draw = self.game.check_state_for_draw(neutral_state, states_counter, is_draw)
+            is_draw = self.game.check_state_for_draw(state, states_counter, is_draw)
             move_count_for_draw, is_draw = self.game.check_moves_for_draw(piece, piece_after, move_count_for_draw, is_draw)
 
             if player == -1:
@@ -73,9 +74,9 @@ class AlphaZero:
             state, policy_targets, value_targets = np.array(state), np.array(policy_targets), np.array(
                 value_targets).reshape(-1, 1)
 
-            state = torch.tensor(state, dtype=torch.float32)
-            policy_targets = torch.tensor(policy_targets, dtype=torch.float32)
-            value_targets = torch.tensor(value_targets, dtype=torch.float32)
+            state = torch.tensor(state, dtype=torch.float32, device=self.model.device)
+            policy_targets = torch.tensor(policy_targets, dtype=torch.float32, device=self.model.device)
+            value_targets = torch.tensor(value_targets, dtype=torch.float32, device=self.model.device)
 
             out_start_policy, out_end_policy, out_value = self.model(state)
             out_policy = torch.empty_like(policy_targets)

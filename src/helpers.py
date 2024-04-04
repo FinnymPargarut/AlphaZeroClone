@@ -7,6 +7,8 @@ from AlphaMCTS import MCTS
 from Chess import Chess
 from Resnet import ResNet
 from AlphaZero import AlphaZero
+from AlphaMCTSParallel import MCTSParallel
+from AlphaZeroParallel import AlphaZeroParallel
 
 
 def alphaZero_learn_chess():
@@ -22,6 +24,20 @@ def alphaZero_learn_chess():
     # optimizer.load_state_dict(torch.load("models/optimizer_2.pt"))
 
     alphaZero = AlphaZero(model, optimizer, game, args)
+    alphaZero.learn()
+
+
+def alphaZeroParallel_learn_chess():
+    with open("config.yml", 'r') as options:
+        args = yaml.safe_load(options)["args_for_training"]
+
+    game = Chess()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = ResNet(game, 8, 128, device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+
+    alphaZero = AlphaZeroParallel(model, optimizer, game, args)
     alphaZero.learn()
 
 

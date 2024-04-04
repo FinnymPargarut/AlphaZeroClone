@@ -1,13 +1,14 @@
 name: options1
 
 args_for_training:
-  exploration_constant: 2 # Увеличение делает характер алгоаритма более исследовательским, уменьшение - более жадным
+  exploration_constant: 2 # Increasing makes the nature of the algorithm more exploratory, decreasing makes it more greedy
   num_searches: 60
   num_iterations: 1
   num_selfPlay_iterations: 128
+  num_parallel_games: 16
   num_epochs: 4
   batch_size: 32
-  temperature: 1.25 # Увеличение делает характер алгоаритма более исследовательским, уменьшение - более жадным
+  temperature: 1.25 # Increasing makes the nature of the algorithm more exploratory, decreasing makes it more greedy
 
 
 args_for_play_with_model:
